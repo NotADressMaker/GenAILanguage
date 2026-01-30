@@ -1,0 +1,12 @@
+{
+  "output": [
+    "Hello agents",
+    "[demo] (0.2, 8) Summariz"
+  ],
+  "variables": {
+    "topic": "agents",
+    "greeting": "Hello agents",
+    "prompt": "Summarize agents.",
+    "summary": "[demo] (0.2, 8) Summariz"
+  }
+}

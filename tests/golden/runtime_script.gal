@@ -1,0 +1,11 @@
+model "demo"
+set topic = "agents"
+template greeting = "Hello {topic}"
+
+prompt """
+Summarize {topic}.
+"""
+
+generate summary from prompt temperature=0.2 max_tokens=8
+print greeting
+print summary
