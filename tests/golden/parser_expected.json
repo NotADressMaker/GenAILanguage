@@ -1,0 +1,55 @@
+[
+  {
+    "kind": "model",
+    "data": {
+      "name": "demo"
+    }
+  },
+  {
+    "kind": "set",
+    "data": {
+      "name": "topic",
+      "value": "lang"
+    }
+  },
+  {
+    "kind": "template",
+    "data": {
+      "name": "greeting",
+      "value": "Hello {topic}"
+    }
+  },
+  {
+    "kind": "prompt",
+    "data": {
+      "value": "Write about {topic}."
+    }
+  },
+  {
+    "kind": "generate",
+    "data": {
+      "target": "result",
+      "prompt": "prompt",
+      "temperature": 0.5,
+      "max_tokens": 5,
+      "format": "json",
+      "schema": "{\"name\": \"\"}"
+    }
+  },
+  {
+    "kind": "call",
+    "data": {
+      "tool": "lookup",
+      "args": {
+        "key": "topic"
+      },
+      "target": "metadata"
+    }
+  },
+  {
+    "kind": "print",
+    "data": {
+      "value": "greeting"
+    }
+  }
+]
