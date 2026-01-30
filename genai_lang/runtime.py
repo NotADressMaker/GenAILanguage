@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 from typing import Any, Dict, Iterable, List, Protocol
 
 from genai_lang.parser import Statement
@@ -60,12 +61,26 @@ class Runtime:
     def _handle_generate(self, data: Dict[str, Any]) -> None:
         prompt_name = data["prompt"]
         prompt_value = self.variables.get(prompt_name, "")
+        prompt_text = str(prompt_value)
+        schema = data.get("schema")
+        format_name = data.get("format")
+        if schema:
+            prompt_text = f"{prompt_text}\n\nReturn JSON matching this schema:\n{schema}"
+        elif format_name == "json":
+            prompt_text = f"{prompt_text}\n\nReturn valid JSON."
         generated = self.provider.generate(
             self.model,
-            str(prompt_value),
+            prompt_text,
             float(data["temperature"]),
             int(data["max_tokens"]),
         )
+        if format_name == "json" or schema:
+            try:
+                generated_value = json.loads(generated)
+            except json.JSONDecodeError as exc:
+                raise ValueError("Generated output is not valid JSON") from exc
+            self.variables[data["target"]] = generated_value
+            return
         self.variables[data["target"]] = generated
 
     def _handle_call(self, data: Dict[str, Any]) -> None:

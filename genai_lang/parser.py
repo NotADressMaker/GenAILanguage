@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
+import shlex
 from typing import Any, Dict, Iterable, List
 
 
@@ -19,8 +20,7 @@ TEMPLATE_RE = re.compile(r"^template\s+(?P<name>[a-zA-Z_][\w]*)\s*=\s+\"(?P<valu
 SET_RE = re.compile(r"^set\s+(?P<rest>.+)$")
 GENERATE_RE = re.compile(
     r"^generate\s+(?P<target>[a-zA-Z_][\w]*)\s+from\s+(?P<prompt>[a-zA-Z_][\w]*)"
-    r"(?:\s+temperature=(?P<temperature>[\d.]+))?"
-    r"(?:\s+max_tokens=(?P<max_tokens>[\d]+))?$"
+    r"(?P<rest>.*)$"
 )
 CALL_RE = re.compile(
     r"^call\s+(?P<tool>[a-zA-Z_][\w]*)\s+(?P<args>.+?)\s+into\s+(?P<target>[a-zA-Z_][\w]*)$"
@@ -56,6 +56,28 @@ def _parse_call_args(raw: str) -> Dict[str, Any]:
         if not match:
             raise ParseError(f"Invalid call argument: {pair}")
         args[match.group("name")] = _parse_value(match.group("value"))
+    return args
+
+
+def _parse_generate_args(raw: str) -> Dict[str, Any]:
+    args: Dict[str, Any] = {
+        "temperature": 0.7,
+        "max_tokens": 128,
+        "format": None,
+        "schema": None,
+    }
+    if not raw:
+        return args
+    tokens = shlex.split(raw)
+    for token in tokens:
+        match = ASSIGN_RE.match(token)
+        if not match:
+            raise ParseError(f"Invalid generate argument: {token}")
+        key = match.group("name")
+        value = _parse_value(match.group("value"))
+        if key not in args:
+            raise ParseError(f"Unsupported generate argument: {key}")
+        args[key] = value
     return args
 
 
@@ -123,16 +145,14 @@ def parse_script(source: str) -> List[Statement]:
 
         generate_match = GENERATE_RE.match(line)
         if generate_match:
-            temperature = generate_match.group("temperature")
-            max_tokens = generate_match.group("max_tokens")
+            args = _parse_generate_args(generate_match.group("rest").strip())
             statements.append(
                 Statement(
                     "generate",
                     {
                         "target": generate_match.group("target"),
                         "prompt": generate_match.group("prompt"),
-                        "temperature": float(temperature) if temperature else 0.7,
-                        "max_tokens": int(max_tokens) if max_tokens else 128,
+                        **args,
                     },
                 )
             )

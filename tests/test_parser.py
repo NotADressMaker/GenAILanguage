@@ -27,6 +27,18 @@ print out
         with self.assertRaises(ParseError):
             parse_script("bad stuff")
 
+    def test_parses_generate_json_args(self):
+        script = """
+prompt \"\"\"
+Return info.
+\"\"\"
+generate result from prompt format=json schema=\"{\\\"name\\\": \\\"\\\"}\"
+"""
+        statements = parse_script(script)
+        generate_stmt = next(stmt for stmt in statements if stmt.kind == "generate")
+        self.assertEqual(generate_stmt.data["format"], "json")
+        self.assertEqual(generate_stmt.data["schema"], "{\"name\": \"\"}")
+
 
 if __name__ == "__main__":
     unittest.main()
