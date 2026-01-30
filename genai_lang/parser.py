@@ -26,6 +26,9 @@ CALL_RE = re.compile(
     r"^call\s+(?P<tool>[a-zA-Z_][\w]*)\s+(?P<args>.+?)\s+into\s+(?P<target>[a-zA-Z_][\w]*)$"
 )
 PRINT_RE = re.compile(r"^print\s+(?P<value>.+)$")
+MESSAGE_RE = re.compile(
+    r"^message\s+(?P<role>[a-zA-Z_][\w]*)\s+\"(?P<value>.*)\"$"
+)
 PROMPT_START_RE = re.compile(r"^prompt\s+\"\"\"\s*$")
 PROMPT_END_RE = re.compile(r"^\"\"\"\s*$")
 
@@ -168,6 +171,20 @@ def parse_script(source: str) -> List[Statement]:
                         "tool": call_match.group("tool"),
                         "args": _parse_call_args(call_match.group("args")),
                         "target": call_match.group("target"),
+                    },
+                )
+            )
+            index += 1
+            continue
+
+        message_match = MESSAGE_RE.match(line)
+        if message_match:
+            statements.append(
+                Statement(
+                    "message",
+                    {
+                        "role": message_match.group("role"),
+                        "value": message_match.group("value"),
                     },
                 )
             )
