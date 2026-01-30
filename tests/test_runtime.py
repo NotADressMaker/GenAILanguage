@@ -34,6 +34,30 @@ generate result from prompt format=json
         runtime.run(statements)
         self.assertEqual(runtime.variables["result"], {"name": "Ada"})
 
+    def test_generates_from_messages(self):
+        class ChatProvider(Provider):
+            def generate(self, model: str, prompt: str, temperature: float, max_tokens: int) -> str:
+                return "fallback"
+
+            def generate_messages(
+                self,
+                model: str,
+                messages: list[dict[str, str]],
+                temperature: float,
+                max_tokens: int,
+            ) -> str:
+                return f"{model}:{messages[-1]['content']}"
+
+        script = """
+message system "You are concise."
+message user "Hi there."
+generate reply from messages
+"""
+        statements = parse_script(script)
+        runtime = Runtime(provider=ChatProvider())
+        runtime.run(statements)
+        self.assertEqual(runtime.variables["reply"], "default-model:Hi there.")
+
 
 if __name__ == "__main__":
     unittest.main()

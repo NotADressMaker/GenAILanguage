@@ -19,11 +19,14 @@ then executing those scripts with a pluggable runtime.
 model "gpt-4o-mini"
 set topic = "reinforcement learning"
 
+message system "You are a concise research assistant."
+message user "Explain {topic} in 2 sentences."
+
 prompt """
 Write a short summary about {topic}.
 """
 
-generate summary from prompt temperature=0.7 max_tokens=120
+generate summary from messages temperature=0.7 max_tokens=120
 print summary
 ```
 
@@ -35,6 +38,7 @@ print summary
 | `set` | `set name = "Ada"` | Assigns a variable. |
 | `template` | `template greeting = "Hello {name}!"` | Creates a formatted string using current variables. |
 | `prompt` | `prompt """..."""` | Defines a multi‑line prompt. Stored as variable `prompt`. |
+| `message` | `message user "Summarize {topic}."` | Appends a chat message to the `messages` list. |
 | `generate` | `generate out from prompt temperature=0.7 max_tokens=120 format=json schema="{\"name\": \"\"}"` | Calls the model provider. |
 | `call` | `call tool_name arg="value" into result` | Executes a tool and stores the result. |
 | `print` | `print out` | Prints a variable or string literal. |
@@ -59,6 +63,19 @@ Create a short tagline for {topic}.
 
 generate tagline from prompt temperature=0.4 max_tokens=32
 print tagline
+
+---
+
+`message` statements can build chat-style prompts:
+
+```text
+model "demo-model"
+set topic = "tooling"
+message system "You are a creative product assistant."
+message user "List two app ideas about {topic}."
+generate ideas from messages max_tokens=64
+print ideas
+```
 ```
 
 ## Extending the runtime
