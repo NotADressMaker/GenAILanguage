@@ -1,0 +1,12 @@
+# Parser golden test
+model "demo"
+set topic = "lang"
+template greeting = "Hello {topic}"
+
+prompt """
+Write about {topic}.
+"""
+
+generate result from prompt temperature=0.5 max_tokens=5 format=json schema="{\"name\": \"\"}"
+call lookup key="topic" into metadata
+print greeting
