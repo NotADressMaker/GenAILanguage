@@ -35,7 +35,7 @@ print summary
 | `set` | `set name = "Ada"` | Assigns a variable. |
 | `template` | `template greeting = "Hello {name}!"` | Creates a formatted string using current variables. |
 | `prompt` | `prompt """..."""` | Defines a multi‑line prompt. Stored as variable `prompt`. |
-| `generate` | `generate out from prompt temperature=0.7 max_tokens=120` | Calls the model provider. |
+| `generate` | `generate out from prompt temperature=0.7 max_tokens=120 format=json schema="{\"name\": \"\"}"` | Calls the model provider. |
 | `call` | `call tool_name arg="value" into result` | Executes a tool and stores the result. |
 | `print` | `print out` | Prints a variable or string literal. |
 
