@@ -10,6 +10,20 @@ then executing those scripts with a pluggable runtime.
 - **Composable:** define variables, build templates, and chain generations.
 - **Extensible:** swap out the model provider or register custom tools.
 
+## Install
+
+```bash
+python -m pip install -e .
+```
+
+## Running a script
+
+```bash
+genail examples/hello.gai
+# or
+python -m genai_lang.cli examples/hello.gai
+```
+
 ## Language overview
 
 ### Statements
@@ -43,12 +57,6 @@ print summary
 | `call` | `call tool_name arg="value" into result` | Executes a tool and stores the result. |
 | `print` | `print out` | Prints a variable or string literal. |
 
-## Running a script
-
-```bash
-python -m genai_lang.cli examples/hello.gai
-```
-
 ## Example
 
 `examples/hello.gai`:
@@ -63,8 +71,7 @@ Create a short tagline for {topic}.
 
 generate tagline from prompt temperature=0.4 max_tokens=32
 print tagline
-
----
+```
 
 `message` statements can build chat-style prompts:
 
@@ -76,14 +83,13 @@ message user "List two app ideas about {topic}."
 generate ideas from messages max_tokens=64
 print ideas
 ```
-```
 
 ## Extending the runtime
 
-You can provide your own model provider or tool registry:
+Provide your own model provider or tool registry:
 
 ```python
-from genai_lang.runtime import Runtime, Provider
+from genai_lang.runtime import Provider, Runtime
 
 class MyProvider(Provider):
     def generate(self, model, prompt, temperature, max_tokens):
@@ -92,12 +98,29 @@ class MyProvider(Provider):
 runtime = Runtime(provider=MyProvider())
 ```
 
+Registering tools:
+
+```python
+from genai_lang.runtime import Runtime
+
+runtime = Runtime()
+
+runtime.register_tool("lookup", lambda key: {"key": key})
+```
+
+## Testing
+
+```bash
+pytest
+```
+
 ## Project layout
 
 - `genai_lang/parser.py`: Parser for the GenAIL syntax.
 - `genai_lang/runtime.py`: Execution engine and provider interfaces.
 - `genai_lang/cli.py`: CLI entry point.
 - `examples/`: Sample scripts.
+- `tests/`: Test suite.
 
 ## License
 

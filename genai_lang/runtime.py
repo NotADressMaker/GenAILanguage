@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
-from typing import Any, Dict, Iterable, List, Protocol
+from typing import Any, Callable, Dict, Iterable, List, Protocol
 
 from genai_lang.parser import Statement
 
@@ -23,16 +23,18 @@ class Provider(Protocol):
         """Return generated text for a chat message list."""
 
 
+ToolHandler = Callable[..., Any]
+ToolRegistry = Dict[str, ToolHandler]
+RESERVED_VARIABLES = {"prompt", "messages"}
+
+
 @dataclass
 class MockProvider:
     """Default provider for local testing."""
 
     def generate(self, model: str, prompt: str, temperature: float, max_tokens: int) -> str:
         trimmed = " ".join(prompt.split())
-        return (
-            f"[{model}] ({temperature}, {max_tokens}) "
-            f"{trimmed[:max_tokens].strip()}"
-        )
+        return f"[{model}] ({temperature}, {max_tokens}) {trimmed[:max_tokens].strip()}"
 
     def generate_messages(
         self,
@@ -48,12 +50,12 @@ class MockProvider:
 @dataclass
 class Runtime:
     provider: Provider = field(default_factory=MockProvider)
-    tools: Dict[str, Any] = field(default_factory=dict)
+    tools: ToolRegistry = field(default_factory=dict)
     variables: Dict[str, Any] = field(default_factory=dict)
     model: str = "default-model"
     output: List[str] = field(default_factory=list)
 
-    def register_tool(self, name: str, handler: Any) -> None:
+    def register_tool(self, name: str, handler: ToolHandler) -> None:
         self.tools[name] = handler
 
     @staticmethod
@@ -73,23 +75,37 @@ class Runtime:
             handler(stmt.data)
         return self.output
 
+    def _assert_assignable(self, name: str) -> None:
+        if name in RESERVED_VARIABLES:
+            raise ValueError(f"'{name}' is reserved; use the dedicated statement instead")
+
+    def _format_string(self, template: str) -> str:
+        try:
+            return template.format(**self.variables)
+        except KeyError as exc:
+            raise ValueError(f"Unknown variable: {exc.args[0]}") from exc
+
     def _handle_model(self, data: Dict[str, Any]) -> None:
         self.model = str(data["name"])
 
     def _handle_set(self, data: Dict[str, Any]) -> None:
-        self.variables[data["name"]] = data["value"]
+        name = data["name"]
+        self._assert_assignable(name)
+        self.variables[name] = data["value"]
 
     def _handle_template(self, data: Dict[str, Any]) -> None:
+        name = data["name"]
+        self._assert_assignable(name)
         template = str(data["value"])
-        self.variables[data["name"]] = template.format(**self.variables)
+        self.variables[name] = self._format_string(template)
 
     def _handle_prompt(self, data: Dict[str, Any]) -> None:
-        self.variables["prompt"] = data["value"].format(**self.variables)
+        self.variables["prompt"] = self._format_string(data["value"])
 
     def _handle_message(self, data: Dict[str, Any]) -> None:
         message = {
             "role": data["role"],
-            "content": str(data["value"]).format(**self.variables),
+            "content": self._format_string(str(data["value"])),
         }
         messages = self.variables.setdefault("messages", [])
         if not isinstance(messages, list):
@@ -98,12 +114,23 @@ class Runtime:
 
     def _handle_generate(self, data: Dict[str, Any]) -> None:
         prompt_name = data["prompt"]
-        prompt_value = self.variables.get(prompt_name, "")
+        if prompt_name not in self.variables:
+            raise ValueError(f"Unknown prompt variable: {prompt_name}")
+        prompt_value = self.variables[prompt_name]
         prompt_text = str(prompt_value)
         messages: List[Dict[str, str]] | None = None
         if isinstance(prompt_value, list):
             messages = prompt_value
             prompt_text = self.format_messages(messages)
+        try:
+            temperature = float(data["temperature"])
+            max_tokens = int(data["max_tokens"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("generate arguments must include numeric temperature and max_tokens") from exc
+        if temperature < 0:
+            raise ValueError("temperature must be non-negative")
+        if max_tokens <= 0:
+            raise ValueError("max_tokens must be positive")
         schema = data.get("schema")
         format_name = data.get("format")
         if schema:
@@ -114,15 +141,15 @@ class Runtime:
             generated = self.provider.generate_messages(
                 self.model,
                 messages,
-                float(data["temperature"]),
-                int(data["max_tokens"]),
+                temperature,
+                max_tokens,
             )
         else:
             generated = self.provider.generate(
                 self.model,
                 prompt_text,
-                float(data["temperature"]),
-                int(data["max_tokens"]),
+                temperature,
+                max_tokens,
             )
         if format_name == "json" or schema:
             try:

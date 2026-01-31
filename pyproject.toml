@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=67", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "genai-lang"
+version = "0.1.0"
+description = "GenAIL: a small, readable scripting language for GenAI apps."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "GenAIL contributors" }
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.scripts]
+genail = "genai_lang.cli:main"
+genai-lang = "genai_lang.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["genai_lang*"]
