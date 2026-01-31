@@ -15,8 +15,10 @@ class Statement:
 
 
 ASSIGN_RE = re.compile(r"^(?P<name>[a-zA-Z_][\w]*)\s*=\s*(?P<value>.+)$")
-MODEL_RE = re.compile(r"^model\s+\"(?P<name>.+)\"$")
-TEMPLATE_RE = re.compile(r"^template\s+(?P<name>[a-zA-Z_][\w]*)\s*=\s+\"(?P<value>.*)\"$")
+MODEL_RE = re.compile(r'^model\s+"(?P<name>.+)"$')
+TEMPLATE_RE = re.compile(
+    r'^template\s+(?P<name>[a-zA-Z_][\w]*)\s*=\s+"(?P<value>.*)"$'
+)
 SET_RE = re.compile(r"^set\s+(?P<rest>.+)$")
 GENERATE_RE = re.compile(
     r"^generate\s+(?P<target>[a-zA-Z_][\w]*)\s+from\s+(?P<prompt>[a-zA-Z_][\w]*)"
@@ -26,11 +28,9 @@ CALL_RE = re.compile(
     r"^call\s+(?P<tool>[a-zA-Z_][\w]*)\s+(?P<args>.+?)\s+into\s+(?P<target>[a-zA-Z_][\w]*)$"
 )
 PRINT_RE = re.compile(r"^print\s+(?P<value>.+)$")
-MESSAGE_RE = re.compile(
-    r"^message\s+(?P<role>[a-zA-Z_][\w]*)\s+\"(?P<value>.*)\"$"
-)
-PROMPT_START_RE = re.compile(r"^prompt\s+\"\"\"\s*$")
-PROMPT_END_RE = re.compile(r"^\"\"\"\s*$")
+MESSAGE_RE = re.compile(r'^message\s+(?P<role>[a-zA-Z_][\w]*)\s+"(?P<value>.*)"$')
+PROMPT_START_RE = re.compile(r'^prompt\s+"""\s*$')
+PROMPT_END_RE = re.compile(r'^"""\s*$')
 
 
 class ParseError(ValueError):
@@ -39,7 +39,7 @@ class ParseError(ValueError):
 
 def _parse_value(raw: str) -> Any:
     raw = raw.strip()
-    if raw.startswith("\"") and raw.endswith("\""):
+    if raw.startswith('"') and raw.endswith('"'):
         return raw[1:-1]
     if raw.lower() == "true":
         return True
@@ -54,7 +54,7 @@ def _parse_value(raw: str) -> Any:
 
 def _parse_call_args(raw: str) -> Dict[str, Any]:
     args: Dict[str, Any] = {}
-    for pair in raw.split():
+    for pair in shlex.split(raw):
         match = ASSIGN_RE.match(pair)
         if not match:
             raise ParseError(f"Invalid call argument: {pair}")
@@ -84,15 +84,14 @@ def _parse_generate_args(raw: str) -> Dict[str, Any]:
     return args
 
 
-def _consume_prompt(lines: Iterable[str], start_index: int) -> tuple[str, int]:
+def _consume_prompt(lines: List[str], start_index: int) -> tuple[str, int]:
     collected: List[str] = []
-    for offset, line in enumerate(lines):
-        if offset == 0:
-            continue
-        if PROMPT_END_RE.match(line):
-            return "\n".join(collected), start_index + offset
-        collected.append(line)
-    raise ParseError("Unterminated prompt block")
+    for index in range(start_index + 1, len(lines)):
+        raw_line = lines[index].rstrip("\n")
+        if PROMPT_END_RE.match(raw_line.strip()):
+            return "\n".join(collected), index
+        collected.append(raw_line)
+    raise ParseError(f"Line {start_index + 1}: Unterminated prompt block")
 
 
 def parse_script(source: str) -> List[Statement]:
@@ -100,14 +99,15 @@ def parse_script(source: str) -> List[Statement]:
     lines = source.splitlines()
     index = 0
     while index < len(lines):
-        raw_line = lines[index].rstrip()
+        raw_line = lines[index].rstrip("\n")
         line = raw_line.strip()
+        line_no = index + 1
         if not line or line.startswith("#"):
             index += 1
             continue
 
         if PROMPT_START_RE.match(line):
-            prompt, end_index = _consume_prompt(lines[index:], index)
+            prompt, end_index = _consume_prompt(lines, index)
             statements.append(Statement("prompt", {"value": prompt}))
             index = end_index + 1
             continue
@@ -133,7 +133,7 @@ def parse_script(source: str) -> List[Statement]:
         if set_match:
             assign_match = ASSIGN_RE.match(set_match.group("rest"))
             if not assign_match:
-                raise ParseError(f"Invalid set statement: {line}")
+                raise ParseError(f"Line {line_no}: Invalid set statement: {line}")
             statements.append(
                 Statement(
                     "set",
@@ -148,7 +148,10 @@ def parse_script(source: str) -> List[Statement]:
 
         generate_match = GENERATE_RE.match(line)
         if generate_match:
-            args = _parse_generate_args(generate_match.group("rest").strip())
+            try:
+                args = _parse_generate_args(generate_match.group("rest").strip())
+            except ParseError as exc:
+                raise ParseError(f"Line {line_no}: {exc}") from exc
             statements.append(
                 Statement(
                     "generate",
@@ -164,12 +167,16 @@ def parse_script(source: str) -> List[Statement]:
 
         call_match = CALL_RE.match(line)
         if call_match:
+            try:
+                args = _parse_call_args(call_match.group("args"))
+            except ParseError as exc:
+                raise ParseError(f"Line {line_no}: {exc}") from exc
             statements.append(
                 Statement(
                     "call",
                     {
                         "tool": call_match.group("tool"),
-                        "args": _parse_call_args(call_match.group("args")),
+                        "args": args,
                         "target": call_match.group("target"),
                     },
                 )
@@ -193,12 +200,10 @@ def parse_script(source: str) -> List[Statement]:
 
         print_match = PRINT_RE.match(line)
         if print_match:
-            statements.append(
-                Statement("print", {"value": _parse_value(print_match.group("value"))})
-            )
+            statements.append(Statement("print", {"value": _parse_value(print_match.group("value"))}))
             index += 1
             continue
 
-        raise ParseError(f"Unrecognized statement: {line}")
+        raise ParseError(f"Line {line_no}: Unrecognized statement: {line}")
 
     return statements

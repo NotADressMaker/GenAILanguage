@@ -48,6 +48,29 @@ message system "You are helpful."
         self.assertEqual(statements[0].data["role"], "system")
         self.assertEqual(statements[0].data["value"], "You are helpful.")
 
+    def test_parses_call_args_with_spaces(self):
+        script = """
+call lookup key="hello world" into result
+"""
+        statements = parse_script(script)
+        call_stmt = statements[0]
+        self.assertEqual(call_stmt.data["args"], {"key": "hello world"})
+
+    def test_raises_on_unterminated_prompt(self):
+        script = 'prompt """\nUnfinished\n'
+        with self.assertRaises(ParseError):
+            parse_script(script)
+
+    def test_raises_on_invalid_generate_arg(self):
+        script = '''
+prompt """
+Hello
+"""
+generate result from prompt foo=bar
+'''
+        with self.assertRaises(ParseError):
+            parse_script(script)
+
 
 if __name__ == "__main__":
     unittest.main()

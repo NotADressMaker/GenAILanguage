@@ -58,6 +58,45 @@ generate reply from messages
         runtime.run(statements)
         self.assertEqual(runtime.variables["reply"], "default-model:Hi there.")
 
+    def test_raises_on_missing_template_variable(self):
+        script = """
+template greeting = "Hello {topic}!"
+"""
+        statements = parse_script(script)
+        runtime = Runtime()
+        with self.assertRaises(ValueError):
+            runtime.run(statements)
+
+    def test_raises_on_reserved_prompt_assignment(self):
+        script = """
+set prompt = "override"
+"""
+        statements = parse_script(script)
+        runtime = Runtime()
+        with self.assertRaises(ValueError):
+            runtime.run(statements)
+
+    def test_raises_on_missing_prompt_variable(self):
+        script = """
+generate summary from prompt
+"""
+        statements = parse_script(script)
+        runtime = Runtime()
+        with self.assertRaises(ValueError):
+            runtime.run(statements)
+
+    def test_raises_on_invalid_generate_args(self):
+        script = """
+prompt \"\"\"
+Hello
+\"\"\"
+generate result from prompt temperature=hot max_tokens=oops
+"""
+        statements = parse_script(script)
+        runtime = Runtime()
+        with self.assertRaises(ValueError):
+            runtime.run(statements)
+
 
 if __name__ == "__main__":
     unittest.main()
