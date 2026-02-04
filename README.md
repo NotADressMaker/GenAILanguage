@@ -49,7 +49,7 @@ print summary
 | Statement | Example | Description |
 | --- | --- | --- |
 | `model` | `model "gpt-4o-mini"` | Sets the active model name. |
-| `set` | `set name = "Ada"` | Assigns a variable. |
+| `set` | `set name = "Ada"` | Assigns a variable (supports JSON object/array literals). |
 | `template` | `template greeting = "Hello {name}!"` | Creates a formatted string using current variables. |
 | `prompt` | `prompt """..."""` | Defines a multi‑line prompt. Stored as variable `prompt`. |
 | `message` | `message user "Summarize {topic}."` | Appends a chat message to the `messages` list. |

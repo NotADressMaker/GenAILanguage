@@ -56,6 +56,12 @@ call lookup key="hello world" into result
         call_stmt = statements[0]
         self.assertEqual(call_stmt.data["args"], {"key": "hello world"})
 
+    def test_parses_json_literals_in_set(self):
+        script = 'set config = {"a": 1}\nset items = [1, 2]\n'
+        statements = parse_script(script)
+        self.assertEqual(statements[0].data["value"], {"a": 1})
+        self.assertEqual(statements[1].data["value"], [1, 2])
+
     def test_raises_on_unterminated_prompt(self):
         script = 'prompt """\nUnfinished\n'
         with self.assertRaises(ParseError):
