@@ -90,8 +90,13 @@ class Runtime:
 
     def _handle_set(self, data: Dict[str, Any]) -> None:
         name = data["name"]
-        self._assert_assignable(name)
-        self.variables[name] = data["value"]
+        value = data["value"]
+        if name in RESERVED_VARIABLES:
+            if name == "messages" and isinstance(value, list):
+                self.variables[name] = value
+                return
+            raise ValueError(f"'{name}' is reserved; use the dedicated statement instead")
+        self.variables[name] = value
 
     def _handle_template(self, data: Dict[str, Any]) -> None:
         name = data["name"]

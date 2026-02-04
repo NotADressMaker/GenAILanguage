@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import re
 import shlex
 from typing import Any, Dict, Iterable, List
@@ -37,10 +38,17 @@ class ParseError(ValueError):
     """Raised when a script cannot be parsed."""
 
 
-def _parse_value(raw: str) -> Any:
+def _parse_value(raw: str, *, allow_json: bool = False) -> Any:
     raw = raw.strip()
     if raw.startswith('"') and raw.endswith('"'):
         return raw[1:-1]
+    if allow_json and (
+        (raw.startswith("{") and raw.endswith("}")) or (raw.startswith("[") and raw.endswith("]"))
+    ):
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            pass
     if raw.lower() == "true":
         return True
     if raw.lower() == "false":
@@ -139,7 +147,7 @@ def parse_script(source: str) -> List[Statement]:
                     "set",
                     {
                         "name": assign_match.group("name"),
-                        "value": _parse_value(assign_match.group("value")),
+                    "value": _parse_value(assign_match.group("value"), allow_json=True),
                     },
                 )
             )
